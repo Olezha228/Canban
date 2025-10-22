@@ -23,6 +23,50 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
     }
 
+    let editModalInstance = null;
+    let currentEditId = null;
+
+    function openEditModal(id) {
+        const tasks = loadTasks();
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        const titleEl = document.getElementById('editTaskTitle');
+        const descEl = document.getElementById('editTaskDesc');
+        if (titleEl) titleEl.value = task.title;
+        if (descEl) descEl.value = task.description || '';
+        currentEditId = id;
+        if (!editModalInstance) {
+            const modalEl = document.getElementById('editTaskModal');
+            if (modalEl && window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+                editModalInstance = new bootstrap.Modal(modalEl);
+                // focus title input when modal is shown
+                modalEl.addEventListener('shown.bs.modal', () => {
+                    const titleEl = document.getElementById('editTaskTitle');
+                    if (titleEl) titleEl.focus();
+                });
+            }
+        }
+        if (editModalInstance) editModalInstance.show();
+    }
+
+    function saveEdit() {
+        if (!currentEditId) return;
+        const titleEl = document.getElementById('editTaskTitle');
+        const descEl = document.getElementById('editTaskDesc');
+        const title = titleEl ? titleEl.value : '';
+        const desc = descEl ? descEl.value : '';
+        if (!title || !title.trim()) return;
+        const tasks = loadTasks();
+        const idx = tasks.findIndex(t => t.id === currentEditId);
+        if (idx === -1) return;
+        tasks[idx].title = title.trim();
+        tasks[idx].description = desc ? desc.trim() : '';
+        saveTasks(tasks);
+        render();
+        if (editModalInstance) editModalInstance.hide();
+        currentEditId = null;
+    }
+
     function createCardElement(task) {
         const card = document.createElement('div');
         card.className = 'kanban-card mb-2 p-2 bg-white border rounded d-flex align-items-start justify-content-between';
@@ -49,6 +93,15 @@
         const actions = document.createElement('div');
         actions.className = 'kanban-card-actions ms-2';
 
+        const edit = document.createElement('button');
+        edit.className = 'btn btn-sm btn-outline-secondary me-2';
+        edit.type = 'button';
+        edit.textContent = 'Edit';
+        edit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditModal(task.id);
+        });
+
         const del = document.createElement('button');
         del.className = 'btn btn-sm btn-outline-danger';
         del.type = 'button';
@@ -58,6 +111,7 @@
             removeTask(task.id);
         });
 
+        actions.appendChild(edit);
         actions.appendChild(del);
 
         card.appendChild(left);
@@ -65,8 +119,10 @@
 
         card.addEventListener('dragstart', (e) => onDragStart(e, task.id));
         card.addEventListener('dragend', (e) => onDragEnd(e));
+        card.addEventListener('dblclick', () => openEditModal(task.id));
         card.addEventListener('keydown', (e) => {
             if (e.key === 'Delete') removeTask(task.id);
+            if (e.key === 'Enter') openEditModal(task.id);
         });
 
         return card;
@@ -138,6 +194,7 @@
         const addBtn = document.getElementById('addTaskBtn');
         const input = document.getElementById('newTaskInput');
         const descInput = document.getElementById('newTaskDesc');
+        const saveBtn = document.getElementById('saveTaskBtn');
         addBtn.addEventListener('click', () => {
             addTask(input.value, descInput ? descInput.value : '');
             input.value = '';
@@ -151,6 +208,8 @@
                 if (descInput) descInput.value = '';
             }
         });
+
+        if (saveBtn) saveBtn.addEventListener('click', saveEdit);
 
         const columns = document.querySelectorAll('.kanban-column');
         columns.forEach(col => {
