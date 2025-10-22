@@ -16,12 +16,17 @@ namespace Canban.Controllers
             _context = context;
         }
 
-        // GET: api/tasks
+        // GET: api/tasks?boardId=...
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks()
+        public async Task<ActionResult<IEnumerable<TaskItem>>> GetTasks([FromQuery] string? boardId)
         {
-            var tasks = await _context.Tasks.AsNoTracking().ToListAsync();
-            return Ok(tasks);
+            if (string.IsNullOrEmpty(boardId))
+            {
+                var tasks = await _context.Tasks.AsNoTracking().ToListAsync();
+                return Ok(tasks);
+            }
+            var filtered = await _context.Tasks.AsNoTracking().Where(t => t.BoardId == boardId).ToListAsync();
+            return Ok(filtered);
         }
 
         // GET: api/tasks/{id}
@@ -38,8 +43,8 @@ namespace Canban.Controllers
         public async Task<ActionResult<TaskItem>> CreateTask(TaskItem item)
         {
             if (string.IsNullOrWhiteSpace(item.Id)) item.Id = Guid.NewGuid().ToString();
-            // ensure required fields
             if (string.IsNullOrWhiteSpace(item.Title)) return BadRequest("Title is required");
+            // BoardId may be null if task not associated yet
             _context.Tasks.Add(item);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetTask), new { id = item.Id }, item);
@@ -52,6 +57,7 @@ namespace Canban.Controllers
             if (id != item.Id) return BadRequest();
             var exists = await _context.Tasks.AnyAsync(t => t.Id == id);
             if (!exists) return NotFound();
+            // Attach and mark modified to preserve BoardId/title/description/status
             _context.Entry(item).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             return NoContent();
@@ -69,4 +75,3 @@ namespace Canban.Controllers
         }
     }
 }
-

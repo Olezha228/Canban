@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Canban.Models
 {
@@ -13,6 +14,11 @@ namespace Canban.Models
         public string? Description { get; set; }
 
         public string Status { get; set; } = "todo";
+
+        // Board relationship (nullable for backward-compatibility until you create a migration)
+        public string? BoardId { get; set; }
+        
+        [JsonIgnore]
+        public Board? Board { get; set; }
     }
 }
-

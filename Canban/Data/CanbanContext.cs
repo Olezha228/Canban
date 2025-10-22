@@ -10,6 +10,6 @@ namespace Canban.Data
         }
 
         public DbSet<TaskItem> Tasks { get; set; } = null!;
+        public DbSet<Board> Boards { get; set; } = null!;
     }
 }
-

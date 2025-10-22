@@ -13,11 +13,20 @@ builder.Services.AddDbContext<CanbanContext>(options => options.UseSqlite(connec
 
 var app = builder.Build();
 
-// Ensure database is created
+// Apply migrations on startup (uses EF Core Migrations)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CanbanContext>();
-    db.Database.EnsureCreated();
+    try
+    {
+        Console.WriteLine("Applying pending EF Core migrations (if any)...");
+        db.Database.Migrate();
+        Console.WriteLine("Database migrations applied.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to apply migrations: {ex.Message}");
+    }
 }
 
 // Configure the HTTP request pipeline.
