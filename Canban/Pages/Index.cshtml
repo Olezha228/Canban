@@ -5,9 +5,18 @@
 }
 
 <div class="kanban-app container">
-    <div class="d-flex mb-3">
-        <input id="newTaskInput" class="form-control me-2" placeholder="New task title" aria-label="New task" />
-        <button id="addTaskBtn" class="btn btn-primary">Add</button>
+    <div class="mb-3">
+        <div class="row g-2">
+            <div class="col-12 col-md-6">
+                <input id="newTaskInput" class="form-control" placeholder="New task title" aria-label="New task" />
+            </div>
+            <div class="col-12 col-md-4">
+                <input id="newTaskDesc" class="form-control" placeholder="Optional description" aria-label="Task description" />
+            </div>
+            <div class="col-12 col-md-2 d-grid">
+                <button id="addTaskBtn" class="btn btn-primary">Add</button>
+            </div>
+        </div>
     </div>
 
     <div class="row kanban-board">
@@ -33,5 +42,5 @@
 </div>
 
 @section Scripts {
-    <!-- Site JS already included in layout; keep section in case page-specific scripts are needed later -->
+    <!-- Site JS already included in layout -->
 }

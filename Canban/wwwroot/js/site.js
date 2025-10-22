@@ -25,20 +25,32 @@
 
     function createCardElement(task) {
         const card = document.createElement('div');
-        card.className = 'kanban-card mb-2 p-2 bg-white border rounded';
+        card.className = 'kanban-card mb-2 p-2 bg-white border rounded d-flex align-items-start justify-content-between';
         card.draggable = true;
         card.dataset.id = task.id;
         card.tabIndex = 0; // make focusable for keyboard actions
+
+        const left = document.createElement('div');
+        left.className = 'kanban-card-left';
 
         const title = document.createElement('div');
         title.textContent = task.title;
         title.className = 'kanban-card-title';
 
+        left.appendChild(title);
+
+        if (task.description) {
+            const desc = document.createElement('div');
+            desc.textContent = task.description;
+            desc.className = 'kanban-card-desc text-muted';
+            left.appendChild(desc);
+        }
+
         const actions = document.createElement('div');
-        actions.className = 'kanban-card-actions float-end';
+        actions.className = 'kanban-card-actions ms-2';
 
         const del = document.createElement('button');
-        del.className = 'btn btn-sm btn-outline-danger ms-2';
+        del.className = 'btn btn-sm btn-outline-danger';
         del.type = 'button';
         del.textContent = 'Delete';
         del.addEventListener('click', (e) => {
@@ -48,11 +60,11 @@
 
         actions.appendChild(del);
 
-        // append title then actions so title appears left and actions on the right
-        card.appendChild(title);
+        card.appendChild(left);
         card.appendChild(actions);
 
         card.addEventListener('dragstart', (e) => onDragStart(e, task.id));
+        card.addEventListener('dragend', (e) => onDragEnd(e));
         card.addEventListener('keydown', (e) => {
             if (e.key === 'Delete') removeTask(task.id);
         });
@@ -71,10 +83,10 @@
         });
     }
 
-    function addTask(title) {
+    function addTask(title, description) {
         if (!title || !title.trim()) return;
         const tasks = loadTasks();
-        const task = { id: uid(), title: title.trim(), status: 'todo' };
+        const task = { id: uid(), title: title.trim(), description: description ? description.trim() : '', status: 'todo' };
         tasks.push(task);
         saveTasks(tasks);
         render();
@@ -125,15 +137,18 @@
     function wire() {
         const addBtn = document.getElementById('addTaskBtn');
         const input = document.getElementById('newTaskInput');
+        const descInput = document.getElementById('newTaskDesc');
         addBtn.addEventListener('click', () => {
-            addTask(input.value);
+            addTask(input.value, descInput ? descInput.value : '');
             input.value = '';
+            if (descInput) descInput.value = '';
             input.focus();
         });
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                addTask(input.value);
+                addTask(input.value, descInput ? descInput.value : '');
                 input.value = '';
+                if (descInput) descInput.value = '';
             }
         });
 

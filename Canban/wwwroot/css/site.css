@@ -41,6 +41,9 @@ body {
 .kanban-card {
   cursor: grab;
   user-select: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .kanban-card:active { cursor: grabbing; }
@@ -49,9 +52,36 @@ body {
 
 .kanban-card-title { font-weight: 500; }
 
-.kanban-card-actions { margin-left: 0.5rem; }
+.kanban-card-left { flex: 1 1 auto; min-width: 0; }
+
+.kanban-card-desc {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+  white-space: pre-wrap;
+  max-height: 4.5rem;
+  overflow: auto;
+}
+
+.kanban-card-actions {
+  margin-left: 0.5rem;
+  display: flex;
+  align-items: flex-start;
+}
 
 /* Small screens: stack columns */
 @media (max-width: 767.98px) {
   .kanban-board { display: block; }
+}
+
+/* Ensure cards wrap nicely on very small screens */
+@media (max-width: 575.98px) {
+  .kanban-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .kanban-card-actions {
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
 }
