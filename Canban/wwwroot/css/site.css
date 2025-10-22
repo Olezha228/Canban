@@ -1,0 +1,57 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+/* Kanban board styles */
+.kanban-board { }
+
+.kanban-column {
+  min-height: 200px;
+  padding: 0.5rem;
+  background: #f7f9fc;
+  border: 1px solid rgba(0,0,0,0.04);
+  border-radius: 6px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.kanban-column.drag-over {
+  background: #e9f5ff;
+  border-color: #66b0ff;
+}
+
+.kanban-card {
+  cursor: grab;
+  user-select: none;
+}
+
+.kanban-card:active { cursor: grabbing; }
+
+.dragging { opacity: 0.6; transform: scale(0.995); }
+
+.kanban-card-title { font-weight: 500; }
+
+.kanban-card-actions { margin-left: 0.5rem; }
+
+/* Small screens: stack columns */
+@media (max-width: 767.98px) {
+  .kanban-board { display: block; }
+}

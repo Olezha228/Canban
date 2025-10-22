@@ -1,0 +1,37 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Kanban";
+}
+
+<div class="kanban-app container">
+    <div class="d-flex mb-3">
+        <input id="newTaskInput" class="form-control me-2" placeholder="New task title" aria-label="New task" />
+        <button id="addTaskBtn" class="btn btn-primary">Add</button>
+    </div>
+
+    <div class="row kanban-board">
+        <div class="col-12 col-md-4 mb-3">
+            <h5>To Do</h5>
+            <div class="kanban-column" data-status="todo" id="col-todo">
+                <!-- cards go here -->
+            </div>
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+            <h5>In Progress</h5>
+            <div class="kanban-column" data-status="inprogress" id="col-inprogress">
+                <!-- cards go here -->
+            </div>
+        </div>
+        <div class="col-12 col-md-4 mb-3">
+            <h5>Done</h5>
+            <div class="kanban-column" data-status="done" id="col-done">
+                <!-- cards go here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Site JS already included in layout; keep section in case page-specific scripts are needed later -->
+}
