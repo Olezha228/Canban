@@ -5,13 +5,27 @@
 }
 
 <div class="kanban-app container">
-    <div class="mb-3 d-flex gap-2">
-        <input id="newBoardName" class="form-control" placeholder="New board name" aria-label="New board" />
-        <button id="addBoardBtn" class="btn btn-primary">Add board</button>
-    </div>
+    <div class="row">
+        <aside class="col-12 col-md-3 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Boards</h5>
+                    <div class="mb-3 d-flex gap-2">
+                        <input id="newBoardName" class="form-control" placeholder="New board name" aria-label="New board" />
+                        <button id="addBoardBtn" class="btn btn-primary">Add</button>
+                    </div>
+                    <div id="boardsList" class="list-group">
+                        <!-- boards list will be rendered here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
 
-    <div id="boardsContainer" class="boards-container">
-        <!-- Boards will be rendered here, stacked one under another -->
+        <section class="col-12 col-md-9">
+            <div id="boardsContainer" class="boards-container">
+                <!-- Selected board will be rendered here -->
+            </div>
+        </section>
     </div>
 </div>
 

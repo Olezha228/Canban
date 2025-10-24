@@ -4,6 +4,7 @@
 // Write your JavaScript code.
 (function () {
     const BOARDS_KEY = 'kanban.boards.v1';
+    const SELECTED_BOARD_KEY = 'kanban.selectedBoardId.v1';
     const API_BOARDS = '/api/boards';
     const API_TASKS = '/api/tasks';
 
@@ -12,6 +13,8 @@
     // Local storage helpers
     function saveLocalBoards(boards) { try { localStorage.setItem(BOARDS_KEY, JSON.stringify(boards)); } catch (e) { console.error(e); } }
     function loadLocalBoards() { try { const raw = localStorage.getItem(BOARDS_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { console.error(e); return []; } }
+    function getSelectedBoardId() { try { return localStorage.getItem(SELECTED_BOARD_KEY); } catch (e) { return null; } }
+    function setSelectedBoardId(id) { try { if (id) localStorage.setItem(SELECTED_BOARD_KEY, id); else localStorage.removeItem(SELECTED_BOARD_KEY); } catch (e) { } }
 
     // Server helpers
     async function fetchServerBoards() { try { const res = await fetch(API_BOARDS); if (!res.ok) throw new Error('Network'); return await res.json(); } catch (e) { console.warn('fetchServerBoards failed', e); return null; } }
@@ -28,8 +31,12 @@
         const local = loadLocalBoards();
         const server = await fetchServerBoards();
         if (server && Array.isArray(server)) {
-            // normalize server shape
-            const normalized = server.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+            // normalize server shape and ensure CreatedDateTime parsed
+            const normalized = server.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+
+            // parse created into Date
+            normalized.forEach(nb => { nb.created = nb.created ? new Date(nb.created) : new Date(); });
+
             // if server empty and local has data, migrate local to server (best-effort)
             if (normalized.length === 0 && local.length > 0) {
                 for (const lb of local) {
@@ -42,7 +49,8 @@
                 }
                 const refreshed = await fetchServerBoards();
                 if (refreshed && Array.isArray(refreshed)) {
-                    const refNorm = refreshed.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+                    const refNorm = refreshed.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+                    refNorm.forEach(nb => { nb.created = nb.created ? new Date(nb.created) : new Date(); });
                     saveLocalBoards(refNorm);
                     return refNorm;
                 }
@@ -50,10 +58,48 @@
             saveLocalBoards(normalized);
             return normalized;
         }
+        // ensure local boards have created field
+        local.forEach(lb => { if (!lb.created) lb.created = new Date(); else lb.created = new Date(lb.created); });
         return local;
     }
 
-    // Rendering
+    // Sidebar population
+    function populateBoardsList(boards) {
+        const list = document.getElementById('boardsList'); if (!list) return;
+        list.innerHTML = '';
+        if (!boards || boards.length === 0) { list.innerHTML = '<div class="text-muted">No boards</div>'; return; }
+
+        // sort by created desc (newest first)
+        boards.sort((a,b) => new Date(b.created) - new Date(a.created));
+
+        const selected = getSelectedBoardId();
+
+        boards.forEach(b => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            item.dataset.id = b.id;
+            item.textContent = b.name;
+
+            if (selected === b.id) item.classList.add('active');
+
+            item.addEventListener('click', async () => {
+                setSelectedBoardId(b.id);
+                // re-render UI showing only selected board
+                await refreshAndRender();
+            });
+
+            // meta (created date)
+            const meta = document.createElement('small'); meta.className = 'text-muted ms-2';
+            const d = new Date(b.created);
+            meta.textContent = d.toLocaleString();
+            item.appendChild(meta);
+
+            list.appendChild(item);
+        });
+    }
+
+    // Rendering of main board area (renders only selected board if provided)
     function createCardElement(task) {
         const card = document.createElement('div');
         card.className = 'kanban-card mb-2 p-2 bg-white border rounded d-flex align-items-start justify-content-between';
@@ -85,7 +131,16 @@
 
     function renderBoards(boards) {
         const container = document.getElementById('boardsContainer'); if (!container) return; container.innerHTML='';
-        boards.forEach(board=>{
+        if (!boards || boards.length === 0) { container.textContent = 'No boards yet.'; return; }
+
+        const selected = getSelectedBoardId();
+        let toRender = boards;
+        if (selected) {
+            const b = boards.find(x => x.id === selected);
+            if (b) toRender = [b]; else toRender = [];
+        }
+
+        toRender.forEach(board=>{
             const boardEl = document.createElement('div'); boardEl.className='mb-4 board';
             const header = document.createElement('div'); header.className='d-flex align-items-center mb-2';
             const title = document.createElement('h4'); title.textContent=board.name; title.className='me-3';
@@ -116,11 +171,24 @@
         if (!name||!name.trim()) return;
         const created = await createServerBoard({ name: name.trim() });
         const boards = loadLocalBoards();
-        if (created && created.id) { boards.push({ id: created.id, name: created.name||name.trim(), tasks: (created.tasks||[]).map(t=>({ id: t.id||t.Id, title: t.title||t.Title, description: t.description||t.Description, status: t.status||t.Status||'todo', boardId: created.id })) }); saveLocalBoards(boards); await refreshAndRender(); return; }
-        const localBoard = { id: uid(), name: name.trim(), tasks: [] }; boards.push(localBoard); saveLocalBoards(boards); await refreshAndRender();
+        if (created && created.id) {
+            // server returns created board including CreatedDateTime when available
+            boards.push({ id: created.id, name: created.name||name.trim(), created: created.createdDateTime || created.CreatedDateTime || new Date(), tasks: (created.tasks||[]).map(t=>({ id: t.id||t.Id, title: t.title||t.Title, description: t.description||t.Description, status: t.status||t.Status||'todo', boardId: created.id })) });
+            saveLocalBoards(boards);
+            setSelectedBoardId(created.id);
+            await refreshAndRender();
+            return;
+        }
+        const localBoard = { id: uid(), name: name.trim(), created: new Date(), tasks: [] };
+        boards.push(localBoard);
+        saveLocalBoards(boards);
+        setSelectedBoardId(localBoard.id);
+        await refreshAndRender();
     }
 
-    async function deleteBoard(id) { if (!confirm('Delete this board and all its tasks?')) return; await deleteServerBoard(id); let boards = loadLocalBoards(); boards = boards.filter(b=>b.id!==id); saveLocalBoards(boards); await refreshAndRender(); }
+    async function deleteBoard(id) { if (!confirm('Delete this board and all its tasks?')) return; await deleteServerBoard(id); let boards = loadLocalBoards(); boards = boards.filter(b=>b.id!==id); saveLocalBoards(boards); // adjust selected if needed
+        const sel = getSelectedBoardId(); if (sel === id) { if (boards.length) setSelectedBoardId(boards[0].id); else setSelectedBoardId(null); }
+        await refreshAndRender(); }
     async function renameBoardPrompt(id) { const boards = loadLocalBoards(); const b = boards.find(x=>x.id===id); if(!b) return; const newName = prompt('New board name', b.name); if(!newName) return; b.name = newName.trim(); await updateServerBoard({ id: b.id, name: b.name }); saveLocalBoards(boards); await refreshAndRender(); }
 
     // Task operations
@@ -147,7 +215,7 @@
     async function onDrop(e){ e.preventDefault(); const taskId = e.dataTransfer.getData('text/plain'); const col = e.currentTarget; const newStatus = col.dataset.status; const targetBoard = col.dataset.board; if(!taskId||!newStatus) return; const boards = loadLocalBoards(); let moved=null; for(const b of boards){ const idx=(b.tasks||[]).findIndex(t=>t.id===taskId); if(idx!==-1){ moved = b.tasks.splice(idx,1)[0]; break; } } if(!moved) return; moved.status=newStatus; moved.boardId = targetBoard || moved.boardId; const dest = boards.find(b=>b.id===moved.boardId); if(dest) dest.tasks.push(moved); await updateServerTask({ id: moved.id, title: moved.title, description: moved.description, status: moved.status, boardId: moved.boardId }); saveLocalBoards(boards); col.classList.remove('drag-over'); await refreshAndRender(); }
 
     // Refresh
-    async function refreshAndRender(){ const boards = await loadBoards(); renderBoards(boards); }
+    async function refreshAndRender(){ const boards = await loadBoards(); populateBoardsList(boards); const selected = getSelectedBoardId() || (boards.length ? boards[0].id : null); if (!getSelectedBoardId() && selected) setSelectedBoardId(selected); renderBoards(boards); }
 
     // Wire UI
     function wire(){ const addBoardBtn = document.getElementById('addBoardBtn'); const newBoardName = document.getElementById('newBoardName'); if(addBoardBtn) addBoardBtn.addEventListener('click', async ()=>{ await addBoard(newBoardName.value); newBoardName.value=''; }); const saveBtn = document.getElementById('saveTaskBtn'); if(saveBtn) saveBtn.addEventListener('click', async ()=> await saveEdit()); refreshAndRender(); }

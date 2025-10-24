@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
+using System;
 
 namespace Canban.Models
 {
@@ -10,6 +11,12 @@ namespace Canban.Models
 
         [Required]
         public string Name { get; set; } = string.Empty;
+
+        // Order position for arranging boards
+        public int Order { get; set; } = 0;
+
+        // Creation timestamp
+        public DateTime CreatedDateTime { get; set; } = DateTime.UtcNow;
 
         // Collection of tasks belonging to this board
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();

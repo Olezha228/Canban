@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Canban.Data;
 using Canban.Models;
 using Microsoft.Data.Sqlite;
+using System.Linq;
+using System;
 
 namespace Canban.Controllers
 {
@@ -23,7 +25,11 @@ namespace Canban.Controllers
         {
             try
             {
-                var boards = await _context.Boards.Include(b => b.Tasks).AsNoTracking().ToListAsync();
+                var boards = await _context.Boards
+                    .Include(b => b.Tasks)
+                    .OrderByDescending(b => EF.Property<DateTime>(b, nameof(Board.CreatedDateTime)))
+                    .AsNoTracking()
+                    .ToListAsync();
                 return Ok(boards);
             }
             catch (SqliteException)
@@ -55,6 +61,14 @@ namespace Canban.Controllers
         {
             if (string.IsNullOrWhiteSpace(board.Id)) board.Id = Guid.NewGuid().ToString();
             if (string.IsNullOrWhiteSpace(board.Name)) return BadRequest("Name is required");
+
+            // ensure CreatedDateTime is set
+            if (board.CreatedDateTime == default) board.CreatedDateTime = DateTime.UtcNow;
+
+            // set Order to end of list (kept for backward compatibility)
+            var maxOrder = await _context.Boards.MaxAsync(b => (int?)EF.Property<int?>(b, nameof(Board.Order))) ?? -1;
+            board.Order = maxOrder + 1;
+
             _context.Boards.Add(board);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetBoard), new { id = board.Id }, board);
@@ -65,9 +79,11 @@ namespace Canban.Controllers
         public async Task<IActionResult> UpdateBoard(string id, Board board)
         {
             if (id != board.Id) return BadRequest();
-            var exists = await _context.Boards.AnyAsync(b => b.Id == id);
-            if (!exists) return NotFound();
-            _context.Entry(board).State = EntityState.Modified;
+            var existing = await _context.Boards.FirstOrDefaultAsync(b => b.Id == id);
+            if (existing == null) return NotFound();
+
+            if (!string.IsNullOrWhiteSpace(board.Name)) existing.Name = board.Name;
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
@@ -89,4 +105,3 @@ namespace Canban.Controllers
         }
     }
 }
-
