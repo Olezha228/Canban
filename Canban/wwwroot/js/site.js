@@ -32,7 +32,7 @@
         const server = await fetchServerBoards();
         if (server && Array.isArray(server)) {
             // normalize server shape and ensure CreatedDateTime parsed
-            const normalized = server.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+            const normalized = server.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', priority: t.priority || t.Priority || 'Medium', boardId: b.id || b.Id })) }));
 
             // parse created into Date
             normalized.forEach(nb => { nb.created = nb.created ? new Date(nb.created) : new Date(); });
@@ -43,13 +43,13 @@
                     const created = await createServerBoard({ name: lb.name });
                     if (created && created.id) {
                         for (const t of lb.tasks || []) {
-                            await createServerTask({ title: t.title, description: t.description, status: t.status, boardId: created.id });
+                            await createServerTask({ title: t.title, description: t.description, status: t.status, priority: t.priority || 'Medium', boardId: created.id });
                         }
                     }
                 }
                 const refreshed = await fetchServerBoards();
                 if (refreshed && Array.isArray(refreshed)) {
-                    const refNorm = refreshed.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', boardId: b.id || b.Id })) }));
+                    const refNorm = refreshed.map(b => ({ id: b.id || b.Id, name: b.name || b.Name || '', created: b.createdDateTime || b.CreatedDateTime || b.created || b.Created || null, tasks: (b.tasks || b.Tasks || []).map(t => ({ id: t.id || t.Id, title: t.title || t.Title || '', description: t.description || t.Description || '', status: t.status || t.Status || 'todo', priority: t.priority || t.Priority || 'Medium', boardId: b.id || b.Id })) }));
                     refNorm.forEach(nb => { nb.created = nb.created ? new Date(nb.created) : new Date(); });
                     saveLocalBoards(refNorm);
                     return refNorm;
@@ -58,8 +58,8 @@
             saveLocalBoards(normalized);
             return normalized;
         }
-        // ensure local boards have created field
-        local.forEach(lb => { if (!lb.created) lb.created = new Date(); else lb.created = new Date(lb.created); });
+        // ensure local boards have created field and tasks have priority
+        local.forEach(lb => { if (!lb.created) lb.created = new Date(); else lb.created = new Date(lb.created); (lb.tasks||[]).forEach(t => { if (!t.priority) t.priority = 'Medium'; }); });
         return local;
     }
 
@@ -106,6 +106,14 @@
         card.draggable = true; card.dataset.id = task.id; card.tabIndex = 0;
 
         const left = document.createElement('div'); left.className = 'kanban-card-left';
+
+        // priority badge
+        const priority = (task.priority || task.Priority || 'Medium').toString();
+        const badge = document.createElement('span');
+        badge.className = 'badge me-2 ' + (priority === 'High' ? 'bg-danger' : (priority === 'Low' ? 'bg-secondary' : 'bg-warning text-dark'));
+        badge.textContent = priority;
+        left.appendChild(badge);
+
         const title = document.createElement('div'); title.textContent = task.title; title.className = 'kanban-card-title'; left.appendChild(title);
         if (task.description) { const desc = document.createElement('div'); desc.textContent = task.description; desc.className = 'kanban-card-desc text-muted'; left.appendChild(desc); }
 
@@ -151,8 +159,11 @@
             const addRow = document.createElement('div'); addRow.className='d-flex gap-2 mb-2';
             const newTaskInput = document.createElement('input'); newTaskInput.className='form-control'; newTaskInput.placeholder='New task title';
             const newTaskDesc = document.createElement('input'); newTaskDesc.className='form-control'; newTaskDesc.placeholder='Optional description';
-            const addTaskBtn = document.createElement('button'); addTaskBtn.className='btn btn-primary'; addTaskBtn.textContent='Add'; addTaskBtn.addEventListener('click', async ()=>{ await addTaskToBoard(board.id, newTaskInput.value, newTaskDesc.value); newTaskInput.value=''; newTaskDesc.value=''; });
-            addRow.appendChild(newTaskInput); addRow.appendChild(newTaskDesc); addRow.appendChild(addTaskBtn);
+            // priority select for new task
+            const newTaskPriority = document.createElement('select'); newTaskPriority.className = 'form-select';
+            ['Low','Medium','High'].forEach(p=>{ const o = document.createElement('option'); o.value = p; o.textContent = p; if (p === 'Medium') o.selected = true; newTaskPriority.appendChild(o); });
+            const addTaskBtn = document.createElement('button'); addTaskBtn.className='btn btn-primary'; addTaskBtn.textContent='Add'; addTaskBtn.addEventListener('click', async ()=>{ await addTaskToBoard(board.id, newTaskInput.value, newTaskDesc.value, newTaskPriority.value); newTaskInput.value=''; newTaskDesc.value=''; newTaskPriority.value='Medium'; });
+            addRow.appendChild(newTaskInput); addRow.appendChild(newTaskDesc); addRow.appendChild(newTaskPriority); addRow.appendChild(addTaskBtn);
 
             const colsWrap = document.createElement('div'); colsWrap.className='row kanban-board';
             ['todo','inprogress','done'].forEach(status=>{
@@ -173,7 +184,7 @@
         const boards = loadLocalBoards();
         if (created && created.id) {
             // server returns created board including CreatedDateTime when available
-            boards.push({ id: created.id, name: created.name||name.trim(), created: created.createdDateTime || created.CreatedDateTime || new Date(), tasks: (created.tasks||[]).map(t=>({ id: t.id||t.Id, title: t.title||t.Title, description: t.description||t.Description, status: t.status||t.Status||'todo', boardId: created.id })) });
+            boards.push({ id: created.id, name: created.name||name.trim(), created: created.createdDateTime || created.CreatedDateTime || new Date(), tasks: (created.tasks||[]).map(t=>({ id: t.id||t.Id, title: t.title||t.Title, description: t.description||t.Description, status: t.status||t.Status||'todo', priority: t.priority || t.Priority || 'Medium', boardId: created.id })) });
             saveLocalBoards(boards);
             setSelectedBoardId(created.id);
             await refreshAndRender();
@@ -192,27 +203,34 @@
     async function renameBoardPrompt(id) { const boards = loadLocalBoards(); const b = boards.find(x=>x.id===id); if(!b) return; const newName = prompt('New board name', b.name); if(!newName) return; b.name = newName.trim(); await updateServerBoard({ id: b.id, name: b.name }); saveLocalBoards(boards); await refreshAndRender(); }
 
     // Task operations
-    async function addTaskToBoard(boardId, title, description) {
+    async function addTaskToBoard(boardId, title, description, priority) {
         if (!title||!title.trim()) return;
-        const created = await createServerTask({ id:'', title: title.trim(), description: description?description.trim():'', status: 'todo', boardId });
+        const created = await createServerTask({ id:'', title: title.trim(), description: description?description.trim():'', status: 'todo', priority: priority || 'Medium', boardId });
         const boards = loadLocalBoards(); const board = boards.find(b=>b.id===boardId); if(!board) return;
-        if (created && created.id) { board.tasks.push({ id: created.id, title: created.title||title.trim(), description: created.description||description||'', status: created.status||'todo', boardId }); saveLocalBoards(boards); await refreshAndRender(); return; }
-        const localTask = { id: uid(), title: title.trim(), description: description?description.trim():'', status: 'todo', boardId }; board.tasks.push(localTask); saveLocalBoards(boards); await refreshAndRender();
+        if (created && created.id) { board.tasks.push({ id: created.id, title: created.title||title.trim(), description: created.description||description||'', status: created.status||'todo', priority: created.priority || created.Priority || 'Medium', boardId }); saveLocalBoards(boards); await refreshAndRender(); return; }
+        const localTask = { id: uid(), title: title.trim(), description: description?description.trim():'', status: 'todo', priority: priority || 'Medium', boardId }; board.tasks.push(localTask); saveLocalBoards(boards); await refreshAndRender();
     }
+
+    async function deleteBoard(id) { if (!confirm('Delete this board and all its tasks?')) return; await deleteServerBoard(id); let boards = loadLocalBoards(); boards = boards.filter(b=>b.id!==id); saveLocalBoards(boards); // adjust selected if needed
+        const sel = getSelectedBoardId(); if (sel === id) { if (boards.length) setSelectedBoardId(boards[0].id); else setSelectedBoardId(null); }
+        await refreshAndRender(); }
+    async function renameBoardPrompt(id) { const boards = loadLocalBoards(); const b = boards.find(x=>x.id===id); if(!b) return; const newName = prompt('New board name', b.name); if(!newName) return; b.name = newName.trim(); await updateServerBoard({ id: b.id, name: b.name }); saveLocalBoards(boards); await refreshAndRender(); }
+
+    async function updateTaskInLocal(task) { const boards = loadLocalBoards(); for (const b of boards) { const idx = (b.tasks||[]).findIndex(t=>t.id===task.id); if (idx !== -1) { b.tasks[idx] = task; saveLocalBoards(boards); return; } } }
 
     async function removeTask(id) { await deleteServerTask(id); const boards = loadLocalBoards(); for (const b of boards) b.tasks = (b.tasks||[]).filter(t=>t.id!==id); saveLocalBoards(boards); await refreshAndRender(); }
 
     // Edit modal
     let editModalInstance = null; let currentEditId = null;
-    function openEditModal(id) { const boards = loadLocalBoards(); let found=null; for(const b of boards){ const t=(b.tasks||[]).find(x=>x.id===id); if(t){ found=t; break; } } if(!found) return; const titleEl=document.getElementById('editTaskTitle'); const descEl=document.getElementById('editTaskDesc'); if(titleEl) titleEl.value=found.title; if(descEl) descEl.value=found.description||''; currentEditId=id; if(!editModalInstance){ const modalEl=document.getElementById('editTaskModal'); if(modalEl && window.bootstrap && typeof window.bootstrap.Modal==='function'){ editModalInstance = new bootstrap.Modal(modalEl); modalEl.addEventListener('shown.bs.modal', ()=>{ const t=document.getElementById('editTaskTitle'); if(t) t.focus(); }); } } if(editModalInstance) editModalInstance.show(); }
+    function openEditModal(id) { const boards = loadLocalBoards(); let found=null; for(const b of boards){ const t=(b.tasks||[]).find(x=>x.id===id); if(t){ found=t; break; } } if(!found) return; const titleEl=document.getElementById('editTaskTitle'); const descEl=document.getElementById('editTaskDesc'); const prEl=document.getElementById('editTaskPriority'); if(titleEl) titleEl.value=found.title; if(descEl) descEl.value=found.description||''; if(prEl) prEl.value = found.priority || found.Priority || 'Medium'; currentEditId=id; if(!editModalInstance){ const modalEl=document.getElementById('editTaskModal'); if(modalEl && window.bootstrap && typeof window.bootstrap.Modal==='function'){ editModalInstance = new bootstrap.Modal(modalEl); modalEl.addEventListener('shown.bs.modal', ()=>{ const t=document.getElementById('editTaskTitle'); if(t) t.focus(); }); } } if(editModalInstance) editModalInstance.show(); }
 
-    async function saveEdit() { if(!currentEditId) return; const titleEl=document.getElementById('editTaskTitle'); const descEl=document.getElementById('editTaskDesc'); const title = titleEl?titleEl.value:''; const desc = descEl?descEl.value:''; if(!title||!title.trim()) return; const boards = loadLocalBoards(); let updated=null; for(const b of boards){ const idx = (b.tasks||[]).findIndex(t=>t.id===currentEditId); if(idx!==-1){ b.tasks[idx].title = title.trim(); b.tasks[idx].description = desc.trim(); updated = b.tasks[idx]; break; } } if(!updated) return; await updateServerTask({ id: updated.id, title: updated.title, description: updated.description, status: updated.status, boardId: updated.boardId }); saveLocalBoards(boards); if(editModalInstance) editModalInstance.hide(); currentEditId=null; await refreshAndRender(); }
+    async function saveEdit() { if(!currentEditId) return; const titleEl=document.getElementById('editTaskTitle'); const descEl=document.getElementById('editTaskDesc'); const prEl=document.getElementById('editTaskPriority'); const title = titleEl?titleEl.value:''; const desc = descEl?descEl.value:''; const priority = prEl?prEl.value:'Medium'; if(!title||!title.trim()) return; const boards = loadLocalBoards(); let updated=null; for(const b of boards){ const idx = (b.tasks||[]).findIndex(t=>t.id===currentEditId); if(idx!==-1){ b.tasks[idx].title = title.trim(); b.tasks[idx].description = desc.trim(); b.tasks[idx].priority = priority; updated = b.tasks[idx]; break; } } if(!updated) return; await updateServerTask({ id: updated.id, title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, boardId: updated.boardId }); saveLocalBoards(boards); if(editModalInstance) editModalInstance.hide(); currentEditId=null; await refreshAndRender(); }
 
     // Drag & drop
     function onDragStart(e, id){ e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed='move'; e.currentTarget.classList.add('dragging'); }
     function onDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; e.currentTarget.classList.add('drag-over'); }
     function onDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
-    async function onDrop(e){ e.preventDefault(); const taskId = e.dataTransfer.getData('text/plain'); const col = e.currentTarget; const newStatus = col.dataset.status; const targetBoard = col.dataset.board; if(!taskId||!newStatus) return; const boards = loadLocalBoards(); let moved=null; for(const b of boards){ const idx=(b.tasks||[]).findIndex(t=>t.id===taskId); if(idx!==-1){ moved = b.tasks.splice(idx,1)[0]; break; } } if(!moved) return; moved.status=newStatus; moved.boardId = targetBoard || moved.boardId; const dest = boards.find(b=>b.id===moved.boardId); if(dest) dest.tasks.push(moved); await updateServerTask({ id: moved.id, title: moved.title, description: moved.description, status: moved.status, boardId: moved.boardId }); saveLocalBoards(boards); col.classList.remove('drag-over'); await refreshAndRender(); }
+    async function onDrop(e){ e.preventDefault(); const taskId = e.dataTransfer.getData('text/plain'); const col = e.currentTarget; const newStatus = col.dataset.status; const targetBoard = col.dataset.board; if(!taskId||!newStatus) return; const boards = loadLocalBoards(); let moved=null; for(const b of boards){ const idx=(b.tasks||[]).findIndex(t=>t.id===taskId); if(idx!==-1){ moved = b.tasks.splice(idx,1)[0]; break; } } if(!moved) return; moved.status=newStatus; moved.boardId = targetBoard || moved.boardId; const dest = boards.find(b=>b.id===moved.boardId); if(dest) dest.tasks.push(moved); await updateServerTask({ id: moved.id, title: moved.title, description: moved.description, status: moved.status, priority: moved.priority || 'Medium', boardId: moved.boardId }); saveLocalBoards(boards); col.classList.remove('drag-over'); await refreshAndRender(); }
 
     // Refresh
     async function refreshAndRender(){ const boards = await loadBoards(); populateBoardsList(boards); const selected = getSelectedBoardId() || (boards.length ? boards[0].id : null); if (!getSelectedBoardId() && selected) setSelectedBoardId(selected); renderBoards(boards); }

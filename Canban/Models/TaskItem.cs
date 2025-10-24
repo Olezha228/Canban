@@ -3,6 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace Canban.Models
 {
+    public enum Priority
+    {
+        Low,
+        Medium,
+        High
+    }
+
     public class TaskItem
     {
         [Key]
@@ -20,5 +27,9 @@ namespace Canban.Models
         
         [JsonIgnore]
         public Board? Board { get; set; }
+
+        // Task priority (serialized as string, default Medium)
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public Priority Priority { get; set; } = Priority.Medium;
     }
 }
