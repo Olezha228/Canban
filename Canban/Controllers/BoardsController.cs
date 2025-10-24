@@ -3,8 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Canban.Data;
 using Canban.Models;
 using Microsoft.Data.Sqlite;
-using System.Linq;
-using System;
 
 namespace Canban.Controllers
 {
