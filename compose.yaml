@@ -1,0 +1,30 @@
+﻿services:
+  canban:
+    image: canban
+    build:
+      context: .
+      dockerfile: Canban/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: canban
+      POSTGRES_PASSWORD: canbanpw
+      POSTGRES_DB: canban
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U canban -d canban"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:

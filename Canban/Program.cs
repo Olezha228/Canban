@@ -7,9 +7,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddControllers();
 
-// Configure SQLite DbContext
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=kanban.db";
-builder.Services.AddDbContext<CanbanContext>(options => options.UseSqlite(connectionString));
+// Configure DbContext: prefer Postgres (ConnectionStrings:Postgres or env POSTGRES_CONNECTION), fall back to SQLite
+var postgresConn = builder.Configuration.GetConnectionString("Postgres") ?? throw new Exception();
+builder.Services.AddDbContext<CanbanContext>(options => options.UseNpgsql(postgresConn));
 
 var app = builder.Build();
 
