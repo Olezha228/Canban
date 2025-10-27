@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # copy csproj and restore
-COPY ["Canban.csproj", "./"]
+COPY ["Canban/Canban.csproj", "./"]
 RUN dotnet restore "Canban.csproj"
 
 # copy everything else and publish
