@@ -24,8 +24,6 @@ namespace Canban.Migrations
                 type: "INTEGER",
                 nullable: false,
                 defaultValue: 0);
-            
-            migrationBuilder.Sql("UPDATE Boards SET CreatedDateTime = CURRENT_TIMESTAMP");
         }
 
         /// <inheritdoc />
