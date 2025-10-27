@@ -5,7 +5,7 @@
       context: .
       dockerfile: Canban/Dockerfile
     ports:
-      - "10001:8080"
+      - "10001:80"
     depends_on:
       - db
       
